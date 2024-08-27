@@ -1,0 +1,6 @@
+trained_models/
+training_logs/
+verif_pairs/old_pairs/
+verif_pairs/paper_pairs/
+pretrained/
+__pycache__

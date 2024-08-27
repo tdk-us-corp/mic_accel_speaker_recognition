@@ -1,0 +1,66 @@
+seed: 1234
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+# Folders and train_log file
+output_folder: /mnt/009-Audio/Internships/AccelAuthentification/training_data/trained_models/farfield_aug/20mic/CKPT+2024-08-21+18-50-30+00
+save_folder: !ref <output_folder>
+
+# "/mnt/009-Audio/Internships\AccelAuthentification/chinese_accel_micro_databases/separateAug"
+base_verification_directory: "/mnt/009-Audio/Internships/AccelAuthentification/chinese_accel_micro_databases/separateAug"
+is_path_abs: False
+
+mic_path: "/mnt/009-Audio/Internships/AccelAuthentification/training_data/verif_pairs/trimmed_paper_pairs/SeparateEars_babble6_4s+_1234.txt"
+acc_path: "/mnt/009-Audio/Internships/AccelAuthentification/training_data/verif_pairs/trimmed_paper_pairs/SeparateEars_babble6_4s+_1234_accel.txt"
+results_dir: '/mnt/009-Audio/Internships/AccelAuthentification/training_data/last_try'
+
+# Feature parameters
+# Here the MFCC will be the sum of the two MFCCs lengths
+n_MFCC : 20
+mic_MFCC: 20
+acc_MFCC: 20
+
+# Modes = ['acc', 'mic', 'fused']
+input_feature_type: 'mic'
+
+
+    
+embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
+    input_size: !ref <n_MFCC>
+    channels: [64, 64, 64, 64, 192]
+    kernel_sizes: [5, 3, 3, 3, 1]
+    dilations: [1, 2, 3, 4, 1]
+    groups: [1, 1, 1, 1, 1]
+    attention_channels: 64
+    lin_neurons: 192
+
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        embedding_model: !ref <embedding_model>
+    # paths:
+    #     embedding_model: !ref <whateve>/embedding_model.ckpt
+
+
+verif_config:
+  feat_mode: 'Fbank'
+  v_stack: True
+  sanity_check: True
+  preprocess: True
+  audio_norm : True
+  fading : False
+  h_stack : False
+  hstack_frames_added : 30
+  mic_feature_mask : False
+  acc_feature_mask : False
+  mask_random : False
+  delta : False
+  delta_coeffs: 6
+  WGN : False
+  WGN_snr: 24
+  swap : False
+  num_of_swapped_feats: 6
+  lowpass_attack : False
+
+# Progress printing frequency
+print_freq: 1000
+
