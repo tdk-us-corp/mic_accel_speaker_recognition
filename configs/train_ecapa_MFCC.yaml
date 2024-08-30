@@ -1,38 +1,55 @@
 # ################################
-# Model: Speaker identification with ECAPA
-# Authors: Hwidong Na & Mirco Ravanelli
+# Inspired by the speechBrain's script for training speaker recognition models:
+# https://github.com/speechbrain/speechbrain/blob/develop/recipes/VoxCeleb/SpeakerRec/train_speaker_embeddings.py
 # ################################
 
 # Basic parameters
 seed: 2002
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/justTestingFusion
-save_folder: !ref "/mnt/009-Audio/Internships/AccelAuthentification/training_data/justTestingFusion"
+output_folder: !ref results/farfield_aug/test123
+save_folder: !ref "/mnt/009-Audio/Internships/AccelAuthentification/training_data/farfield_aug/test123_songle"
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: "/mnt/009-Audio/Internships/AccelAuthentification/chinese_accel_micro_databases/speaker_splits/split1/mic/augmented_train/train"
-
-train_annotation: "/mnt/009-Audio/Internships/AccelAuthentification/chinese_accel_micro_databases/speaker_splits/split1/mic/augmented_train/train/train.csv"
-valid_annotation: "/mnt/009-Audio/Internships/AccelAuthentification/chinese_accel_micro_databases/speaker_splits/split1/mic/augmented_train/train/dev.csv"
+data_folder: "/mnt/009-Audio/Internships/AccelAuthentification/chinese_accel_micro_databases/old_augmentation/train"
 
 
+# train_annotation: "/mnt/009-Audio/Internships/AccelAuthentification/chinese_accel_micro_databases/speaker_splits/split1/mic/train/fused_train.csv"
+# valid_annotation: "/mnt/009-Audio/Internships/AccelAuthentification/chinese_accel_micro_databases/speaker_splits/split1/mic/train/fused_dev_fixed.csv"
 
-verification_file: "/mnt/009-Audio/Internships/AccelAuthentification/training_data/Train/doesnt_matter.txt"
+# train_annotation: "/mnt/009-Audio/Internships/AccelAuthentification/chinese_accel_micro_databases/separatedEars/mic/train/fused_train.csv"
+# valid_annotation: "/mnt/009-Audio/Internships/AccelAuthentification/chinese_accel_micro_databases/separatedEars/mic/train/fused_dev.csv"
+# trying trimmed
+train_annotation: "/mnt/009-Audio/Internships/AccelAuthentification/chinese_accel_micro_databases/old_augmentation/train_csv_3s/trimmed_paths_train.csv"
+valid_annotation: "/mnt/009-Audio/Internships/AccelAuthentification/chinese_accel_micro_databases/old_augmentation/train_csv_3s/trimmed_paths_dev.csv"
 
-split_ratio: [90, 10]
+# Farfield Aug
+# train_annotation: "/mnt/009-Audio/Internships/AccelAuthentification/chinese_accel_micro_databases/farfield_aug/mic/fused_train.csv"
+# valid_annotation: "/mnt/009-Audio/Internships/AccelAuthentification/chinese_accel_micro_databases/farfield_aug/mic/fused_dev.csv"
+
+# FOR Separate EAR AUG DONT FORGET NUM OF CLASSES
+# train_annotation: "/mnt/009-Audio/Internships/AccelAuthentification/chinese_accel_micro_databases/train_sep_ear/mic/fused_train.csv"
+# valid_annotation: "/mnt/009-Audio/Internships/AccelAuthentification/chinese_accel_micro_databases/train_sep_ear/mic/fused_dev.csv"
+
+# Inout config
+n_MFCC: 20
+
+
+
+
 skip_prep: True
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
-number_of_epochs: 40
+number_of_epochs: 15
 batch_size: 64
 lr: 0.001
 base_lr: 0.00000001
+
 max_lr: !ref <lr>
 step_size: 65000
 sample_rate: 16000
-sentence_len: 2.0 # seconds
+sentence_len: 3.0 # seconds
 shuffle: True
 random_chunk: True
 
@@ -41,21 +58,19 @@ n_mels: 80
 left_frames: 0
 right_frames: 0
 deltas: False
-
 context: False
 f_min: 0
 n_fft: 400
 filter_shape: "triangular"
 win_length: 25
 hop_length: 10
-
-# DCT 
-n_MFCC: 13
 ortho_norm: True
 
 
 # Number of speakers
 out_n_neurons: 260
+
+patience: 50
 
 num_workers: 32
 dataloader_options:
@@ -83,6 +98,7 @@ embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
     groups: [1, 1, 1, 1, 1]
     attention_channels: 64
     lin_neurons: 192
+
 
 classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     input_size: 192
@@ -120,6 +136,7 @@ lr_annealing: !new:speechbrain.nnet.schedulers.CyclicLRScheduler
     max_lr: !ref <max_lr>
     step_size: !ref <step_size>
 
+
 # Logging + checkpoints
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
@@ -132,6 +149,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
         embedding_model: !ref <embedding_model>
+        # acc_embedding_model: !ref <acc_embedding_model>
         classifier: !ref <classifier>
         normalizer: !ref <mean_var_norm>
         counter: !ref <epoch_counter>
