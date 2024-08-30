@@ -1,3 +1,11 @@
+# Dataset & Code
+To access the original dataset refer to the [ESMB Github](https://github.com/elevoctech/ESMB-corpus).
+You can also download the cleaned and segmented version of the dataset by us from this [Link](https://drive.google.com/file/d/1d1KfQZSVUWa19oX4eLX-Nf67v5osKIeN/view?usp=sharing).
+
+Also, in this project we have used speechBrain's impelemnation of ECAPA-TDNN and some of the scripts are inspired by the VoxCeleb training reciepe of [SpeechBrain](https://github.com/speechbrain/speechbrain)
+
+
+
 # Requirements
 (Python 3.8.10)
 ```bash
@@ -8,7 +16,7 @@ pip install -r requirements.txt
 # Training a model
 
 To train a fusion model, you can follow the following steps:
-1. Creating a new .csv training and validation file using the preprocessing/splitting_fused.py script (or using the already created ones in the datasets folder %TO DO ADD IT HERE)
+1. Creating a new .csv training and validation file using the preprocessing/splitting_fused.py script (or using the already created ones in the datasets folder)
 2. Updating the config file accordingly at configs/train_ecapa_MFCC.yaml (configs/config_instructions.md for more info)
 3. Running the following code:
 
