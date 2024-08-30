@@ -13,59 +13,58 @@ from hyperpyyaml import load_hyperpyyaml
 from speechbrain.processing.features import DCT
 
 
-is_MFCC = True
-n_MFCC = 13
 
 
 class SpeakerBrain(sb.core.Brain):
-    """Class for speaker embedding training"""
+    def __init__(self, modules=None, opt_class=None, hparams=None, run_opts=None, checkpointer=None):
+        super().__init__(modules, opt_class, hparams, run_opts, checkpointer)
 
+        # MFCC config
+        self.is_MFCC = True
+        self.n_MFCC = hparams['n_MFCC']
+
+    
+    """Speaker embedding training"""
     def compute_forward(self, batch, stage):
-        """Computation pipeline based on a encoder + speaker classifier.
-        """
+
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
-        # Add waveform augmentation if specified.
-        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
-            wavs, lens = self.hparams.wav_augment(wavs, lens)
+        # Feature extraction
+        input_feats = self.modules.compute_features(wavs)
 
-        # Feature extraction and normalization
-        if (
-            hasattr(self.hparams, "use_tacotron2_mel_spec")
-            and self.hparams.use_tacotron2_mel_spec
-        ):
-            print('tact')
-            feats = self.hparams.compute_features(audio=wavs)
-            feats = torch.transpose(feats, 1, 2)
-        else:
-            print('no')
-            feats = self.modules.compute_features(wavs)
-            
-            # mfcc instead of fBank
-            if is_MFCC:
-                print("Fbank Shape:", feats.shape)
-                compute_dct = DCT(feats.size(-1), n_out = n_MFCC)
-                feats = compute_dct(feats)
-                print("MFCC Shape", feats.shape)
+        
+        # Applying DCT to melbanks to extract mfccs
+        if self.is_MFCC:
+            input_feats = self.compute_DCT(input_feats, num_MFCC = self.n_MFCC)
 
-        feats = self.modules.mean_var_norm(feats, lens)
 
-        # Embeddings + speaker classifier
-        embeddings = self.modules.embedding_model(feats)
+
+        # Mean & var normalization
+        final_feats = self.modules.mean_var_norm(input_feats, lens)
+
+        # Computing the embeddings
+        embeddings = self.modules.embedding_model(final_feats)
+        
+        # Classification had
         outputs = self.modules.classifier(embeddings)
 
         return outputs, lens
+    
+    def compute_DCT(self, feats, num_MFCC):
+        """DCT calculation for MFCC as the speechbrain function had some problems"""
+        compute_dct = DCT(feats.size(-1), n_out = num_MFCC)
+        dct_feats = compute_dct(feats)
 
+        return dct_feats
+    
+    
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss using speaker-id as label."""
         predictions, lens = predictions
         uttid = batch.id
         spkid, _ = batch.spk_id_encoded
 
-        # Concatenate labels (due to data augmentation)
-        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
-            spkid = self.hparams.wav_augment.replicate_labels(spkid)
 
         loss = self.hparams.compute_cost(predictions, spkid, lens)
 
@@ -78,6 +77,8 @@ class SpeakerBrain(sb.core.Brain):
             self.error_metrics.append(uttid, predictions, spkid, lens)
 
         return loss
+
+
 
     def on_stage_start(self, stage, epoch=None):
         """Gets called at the beginning of an epoch."""
@@ -93,8 +94,9 @@ class SpeakerBrain(sb.core.Brain):
         else:
             stage_stats["ErrorRate"] = self.error_metrics.summarize("average")
 
-        # Perform end-of-iteration things, like annealing, logging, etc.
+        # Perform end-of-iteration step
         if stage == sb.Stage.VALID:
+            # cyclic LR 
             old_lr, new_lr = self.hparams.lr_annealing(epoch)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
@@ -109,10 +111,13 @@ class SpeakerBrain(sb.core.Brain):
             )
 
 
-def dataio_prep(hparams):
-    "Creates the datasets and their data processing pipelines."
 
+def dataio_prep(hparams):
+    "Data processing pipelines"
+
+    # Dataset root folder
     data_folder = hparams["data_folder"]
+
 
     # 1. Declarations:
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
@@ -124,32 +129,32 @@ def dataio_prep(hparams):
         csv_path=hparams["valid_annotation"],
         replacements={"data_root": data_folder},
     )
+    data_root = hparams['data_folder']
 
     datasets = [train_data, valid_data]
     label_encoder = sb.dataio.encoder.CategoricalEncoder()
 
-    snt_len_sample = int(hparams["sample_rate"] * hparams["sentence_len"])
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav", "start", "stop", "duration")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav, start, stop, duration):
-        # 1.Wav mitone tuple bashe biad inja 2ta read file read she har microphone dar vaghe address pair accelesham hast
-        # 2. mishe ye ras feature read konam inja jaye audio toye edame compute feature o kolan comment konam
-        # 3. mishe am audio read kard onvar feature extract konam khodam ba vertical concat
-        if hparams["random_chunk"]:
-            duration_sample = int(duration * hparams["sample_rate"])
-            start = random.randint(0, duration_sample - snt_len_sample)
-            stop = start + snt_len_sample
-        else:
-            start = int(start)
-            stop = int(stop)
+        
+        # Separating modalities paths 
+        mic_wav = os.path.join(data_root, wav)
+
+        # Extracting the segment
+        start = int(start)
+        stop = int(stop)
         num_frames = stop - start
-        sig, fs = torchaudio.load(
-            wav, num_frames=num_frames, frame_offset=start
+
+        input_sig, _ = torchaudio.load(
+            mic_wav, num_frames=num_frames, frame_offset=start
         )
-        sig = sig.transpose(0, 1).squeeze(1)
-        return sig
+
+        input_sig = input_sig.transpose(0, 1)
+
+        return input_sigs
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
@@ -179,8 +184,7 @@ def dataio_prep(hparams):
 
 
 if __name__ == "__main__":
-    if is_MFCC:
-        print("using MFCC instead of MelSpec")
+
     # This flag enables the inbuilt cudnn auto-tuner
     torch.backends.cudnn.benchmark = True
 
@@ -193,34 +197,7 @@ if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
-
-    # Download verification list (to exclude verification sentences from train)
-    veri_file_path = os.path.join(
-        hparams["save_folder"], os.path.basename(hparams["verification_file"])
-    )
-    download_file(hparams["verification_file"], veri_file_path)
     
-    # print(hparams["compute_features"])
-
-    # # Dataset prep (parsing VoxCeleb and annotation into csv files)
-    # from voxceleb_prepare import prepare_voxceleb  # noqa
-
-    # run_on_main(
-    #     prepare_voxceleb,
-    #     kwargs={
-    #         "data_folder": hparams["data_folder"],
-    #         "save_folder": hparams["save_folder"],
-    #         "verification_pairs_file": veri_file_path,
-    #         "splits": ["train", "dev"],
-    #         "split_ratio": hparams["split_ratio"],
-    #         "seg_dur": hparams["sentence_len"],
-    #         "skip_prep": hparams["skip_prep"],
-    #     },
-    # )
-    # sb.utils.distributed.run_on_main(hparams["prepare_noise_data"])
-    # sb.utils.distributed.run_on_main(hparams["prepare_rir_data"])
-
-    # Dataset IO prep: creating Dataset objects and proper encodings for phones
     train_data, valid_data, label_encoder = dataio_prep(hparams)
 
     # Create experiment directory
@@ -238,6 +215,9 @@ if __name__ == "__main__":
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
+
+    if speaker_brain.is_MFCC:
+        print("using MFCC instead of MelSpec")
 
     # Training
     speaker_brain.fit(
