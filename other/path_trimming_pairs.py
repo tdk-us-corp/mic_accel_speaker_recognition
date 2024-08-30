@@ -1,3 +1,6 @@
+#
+# Copyright (c) [2024] TDK U.S.A. Corporation
+#
 import os
 
 def modify_chunks(chunk):

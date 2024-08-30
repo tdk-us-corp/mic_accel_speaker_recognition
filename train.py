@@ -1,4 +1,6 @@
-#!/usr/bin/python3
+#
+# Copyright (c) [2024] TDK U.S.A. Corporation
+#
 """Inspired by the speechBrain script for training speaker recognition models:
 https://github.com/speechbrain/speechbrain/blob/develop/recipes/VoxCeleb/SpeakerRec/train_speaker_embeddings.py
 """

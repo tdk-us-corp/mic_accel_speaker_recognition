@@ -1,3 +1,7 @@
+#
+# Copyright (c) [2024] TDK U.S.A. Corporation
+#
+
 import os
 import sys
 import torch

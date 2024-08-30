@@ -1,3 +1,6 @@
+#
+# Copyright (c) [2024] TDK U.S.A. Corporation
+#
 import pandas as pd
 import os
 # Load the CSV file

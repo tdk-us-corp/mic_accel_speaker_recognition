@@ -1,3 +1,6 @@
+#
+# Copyright (c) [2024] TDK U.S.A. Corporation
+#
 def process_verification_pairs(input_file_path, output_file_path, new_keyword):
     with open(input_file_path, 'r') as file:
         lines = file.readlines()

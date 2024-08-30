@@ -1,3 +1,6 @@
+#
+# Copyright (c) [2024] TDK U.S.A. Corporation
+#
 def modify_file_contents(input_file, output_file):
     with open(input_file, 'r') as file:
         lines = file.readlines()

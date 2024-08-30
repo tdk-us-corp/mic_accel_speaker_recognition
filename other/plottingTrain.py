@@ -1,3 +1,6 @@
+#
+# Copyright (c) [2024] TDK U.S.A. Corporation
+#
 import matplotlib.pyplot as plt
 import re
 
